@@ -1,45 +1,25 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
-import session from 'express-session';
-import DB from './framework/DB';
-import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
-import accounts from './routes/Accounts';
 import main from './routes/Main';
+import auth from './routes/Auth';
 import ejs from 'ejs';
 import path from 'path';
+import mongoose from 'mongoose';
+import { User } from './models/User';
+import session from 'express-session';
 
-declare module 'express-session' {
-    export interface SessionData {
-        userId: number;
-    }
-}
 
 dotenv.config();
-const SequelizeStore = require("connect-session-sequelize")(session.Store);
-const dbClient = DB.client;
-
-const authenticate = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (token === null) {
-        return res.sendStatus(401);
-    }
-
-    jwt.verify(token, process.env.TOKEN_SECRET, (err, user) => {
-        if (err) {
-            console.log(err);
-            return res.sendStatus(403);
-        }
-
-        req.user = user;
-        next()
-    });
-}
+const MongodbStore =  require('connect-mongodb-session')(session);
+const MONGODB_URI = `mongodb+srv://atubs:${process.env.MONGODB_PASSWORD}@authorization.uuucj.mongodb.net/myFirstDatabase`;
 
 const app = express();
+const store = new MongodbStore({
+    uri: MONGODB_URI,
+    collection: 'sessions'
+})
 
 app.set('view engine', 'ejs');
 app.set('views', __dirname + '/views/');
@@ -47,6 +27,12 @@ app.use(bodyParser.json());
 app.use(cors());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(session({
+    secret: process.env.TOKEN_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    store,
+}))
 
 
 
@@ -58,7 +44,15 @@ const redirectLogin = (req, res, next) => {
     }
 }
 
-app.use('/accounts', accounts);
+app.use(auth);
 app.use(main);
 
-app.listen(5000, () => console.log('Server running'));
+(async function() {
+    try {
+        await mongoose.connect(MONGODB_URI + '?retryWrites=true&w=majority');
+        app.listen(5000, () => console.log('Server running'));
+    } catch(err) {
+        console.log(err);
+    }
+})();
+
