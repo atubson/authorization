@@ -4,7 +4,6 @@ class MainController {
         res.render('main/index', {
             pageTitle: 'Main page',
             path: '/',
-            isAuthenticated: req.session.isLoggedIn,
         })
     };
 
@@ -12,7 +11,6 @@ class MainController {
         res.render('main/protected', {
             pageTitle: 'Protected Page',
             path: '/protected',
-            isAuthenticated: req.session.isLoggedIn,
         });
     }
 

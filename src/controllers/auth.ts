@@ -7,7 +7,7 @@ class AuthController {
         res.render('auth/login', {
           path: '/login',
           pageTitle: 'Login',
-          isAuthenticated: req.session.isLoggedIn
+          errorMessage: req.flash('error'),
         });
     };
       
@@ -15,7 +15,6 @@ class AuthController {
         res.render('auth/signup', {
           path: '/signup',
           pageTitle: 'Signup',
-          isAuthenticated: req.session.isLoggedIn
         });
     };
 
@@ -23,12 +22,10 @@ class AuthController {
       res.render('auth/verifyLogin', {
         path: '/verifyLogin',
         pageTitle: 'Verify user by sms',
-        isAuthenticated: false,
-        userId: req.user._id,
-        tokenId: req.tokenId
+        userId: req.flash('userId'),
+        tokenId: req.flash('tokenId'),
+        errors: req.flash('errors'),
       })
-      console.log(req.user);
-      next();
     }
       
     postLogin = async (req, res, next) => {
@@ -37,12 +34,13 @@ class AuthController {
             const password = req.body.password;
             const user = await User.findOne({ email }).exec();
             if (!user) {
+              req.flash('error', 'Invalid email or password.')
               return res.redirect('/login');
             }
 
             const doMatch = await bcrypt.compare(password, user.password);
             if (doMatch) {
-              const messagebird = require('messagebird')(process.env.MESSAGEBIRD_PROD_KEY);
+              const messagebird = require('messagebird')(process.env.MESSAGEBIRD_TEST_KEY);
               messagebird.verify.create(`+${user.phone}`, {
                 template: 'Your verification code is %token.',
                 type: 'sms',
@@ -51,17 +49,11 @@ class AuthController {
                   console.log(err);
                 } else {
                   console.log(response);
-                  req.user = user;
-                  req.tokenId = response.id;
-                  return next();
+                  req.flash('userId', user._id);
+                  req.flash('tokenId', response.id);
+                  return res.redirect('/verifyLogin');
                 }
               })
-              // req.session.isLoggedIn = true;
-              // req.session.user = user;
-              // req.session.save(err => {
-              //     console.log(err);
-              //     res.redirect('/protected');
-              // });
             } else {
               throw new Error('Wrong password!');
             }
@@ -74,17 +66,20 @@ class AuthController {
     };
 
     postLoginVerify = async (req, res, next) => {
-      const messagebird = require('messagebird')(process.env.MESSAGEBIRD_PROD_KEY);
+      const messagebird = require('messagebird')(process.env.MESSAGEBIRD_TEST_KEY);
       messagebird.verify.verify(req.body.tokenId, req.body.token, async (err, response) => {
         if (err) {
-          console.log(err);
+          req.flash('userId', req.body.userId);
+          req.flash('tokenId', req.body.tokenId);
+          req.flash('errors', err.errors);
+          return res.redirect('/verifyLogin');
         } else {
           const user = await User.findById(req.body.userId).exec();
           req.session.isLoggedIn = true;
           req.session.user = user;
           req.session.save(err => {
             console.log(err);
-            res.redirect('/protected');
+            return res.redirect('/protected');
           });
         }
       })

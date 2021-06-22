@@ -6,11 +6,13 @@ auth.get('/login', AuthController.getLogin);
 
 auth.get('/signup', AuthController.getSignup);
 
-auth.post('/login', AuthController.postLogin, AuthController.getVerifyLogin);
+auth.post('/login', AuthController.postLogin);
 
 auth.post('/signup', AuthController.postSignup);
 
 auth.post('/logout', AuthController.postLogout);
+
+auth.get('/verifyLogin', AuthController.getVerifyLogin);
 
 auth.post('/verifyLogin', AuthController.postLoginVerify);
 
