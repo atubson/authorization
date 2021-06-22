@@ -7,10 +7,16 @@
    <%- include('../includes/navigation.ejs') %>
 
     <main>
+        <% if (errors && errors.length > 0) { %>
+            <% errors.forEach(err => { %>
+                <div class="user-message user-message--error"><%= err.description %></div>
+            <% }) %>
+        <% } %>
         <form class="login-form" action="/verifyLogin" method="POST">
             <div class="form-control">
                 <input type="hidden" name="userId" id="userId" value="<%= userId %>">
                 <input type="hidden" name="tokenId" id="tokenId" value="<%= tokenId %>">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             </div>
             <div class="form-control">
                 <label for="token">Verification code</label>

@@ -9,18 +9,27 @@ import path from 'path';
 import mongoose from 'mongoose';
 import { User } from './models/User';
 import session from 'express-session';
+import csrf from 'csurf';
+import flash from 'connect-flash';
 
 
 dotenv.config();
 const MongodbStore =  require('connect-mongodb-session')(session);
 const MONGODB_URI = `mongodb+srv://atubs:${process.env.MONGODB_PASSWORD}@authorization.uuucj.mongodb.net/myFirstDatabase`;
 const messagebird = require('messagebird')(process.env.MESSAGEBIRD_TEST_KEY);
+const csrfProtection = csrf();
 
 const app = express();
 const store = new MongodbStore({
     uri: MONGODB_URI,
     collection: 'sessions'
 })
+
+declare module 'express-session' {
+    export interface SessionData {
+        isLoggedIn: boolean,
+    }
+}
 
 app.set('view engine', 'ejs');
 app.set('views', __dirname + '/views/');
@@ -34,6 +43,8 @@ app.use(session({
     saveUninitialized: false,
     store,
 }))
+app.use(csrfProtection);
+app.use(flash());
 
 
 
@@ -44,7 +55,11 @@ const redirectLogin = (req, res, next) => {
         next();
     }
 }
-
+app.use((req, res, next) => {
+    res.locals.isAuthenticated = req.session.isLoggedIn;
+    res.locals.csrfToken = req.csrfToken();
+    next();
+})
 app.use(auth);
 app.use(main);
 
