@@ -1,0 +1,22 @@
+<%- include('../includes/head.ejs') %>
+    <link rel="stylesheet" href="/css/forms.css">
+    <link rel="stylesheet" href="/css/auth.css">
+</head>
+
+<body>
+   <%- include('../includes/navigation.ejs') %>
+
+    <main>
+        <form class="login-form" action="/verifyLogin" method="POST">
+            <div class="form-control">
+                <input type="hidden" name="userId" id="userId" value="<%= userId %>">
+                <input type="hidden" name="tokenId" id="tokenId" value="<%= tokenId %>">
+            </div>
+            <div class="form-control">
+                <label for="token">Verification code</label>
+                <input type="text" name="token" id="token">
+            </div>
+            <button class="btn" type="submit">Verify</button>
+        </form>
+    </main>
+<%- include('../includes/end.ejs') %>

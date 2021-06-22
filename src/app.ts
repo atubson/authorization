@@ -14,6 +14,7 @@ import session from 'express-session';
 dotenv.config();
 const MongodbStore =  require('connect-mongodb-session')(session);
 const MONGODB_URI = `mongodb+srv://atubs:${process.env.MONGODB_PASSWORD}@authorization.uuucj.mongodb.net/myFirstDatabase`;
+const messagebird = require('messagebird')(process.env.MESSAGEBIRD_TEST_KEY);
 
 const app = express();
 const store = new MongodbStore({
