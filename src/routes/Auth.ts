@@ -16,4 +16,8 @@ auth.get('/verifyLogin', AuthController.getVerifyLogin);
 
 auth.post('/verifyLogin', AuthController.postLoginVerify);
 
+auth.get('/getGoogleAuthenticator', AuthController.getGoogleAuthentication);
+
+auth.post('/verifyGoogleAuth', AuthController.verifyGoogleAuth);
+
 export default auth;

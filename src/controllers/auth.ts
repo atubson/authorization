@@ -1,5 +1,7 @@
 import { User } from '../models/User';
 import bcrypt from 'bcrypt';
+import speakeasy from 'speakeasy';
+import QRCode from 'qrcode';
 
 class AuthController {
 
@@ -19,12 +21,13 @@ class AuthController {
     };
 
     getVerifyLogin = (req, res, next) => {
+      const secret = req.flash('secret')[0];
       res.render('auth/verifyLogin', {
         path: '/verifyLogin',
-        pageTitle: 'Verify user by sms',
+        pageTitle: 'Verify user by GoogleAuth',
         userId: req.flash('userId'),
-        tokenId: req.flash('tokenId'),
         errors: req.flash('errors'),
+        secret: secret.base32,
       })
     }
       
@@ -40,20 +43,9 @@ class AuthController {
 
             const doMatch = await bcrypt.compare(password, user.password);
             if (doMatch) {
-              const messagebird = require('messagebird')(process.env.MESSAGEBIRD_TEST_KEY);
-              messagebird.verify.create(`+${user.phone}`, {
-                template: 'Your verification code is %token.',
-                type: 'sms',
-              }, (err, response) => {
-                if (err) {
-                  console.log(err);
-                } else {
-                  console.log(response);
-                  req.flash('userId', user._id);
-                  req.flash('tokenId', response.id);
-                  return res.redirect('/verifyLogin');
-                }
-              })
+                req.flash('userId', user._id);
+                req.flash('secret', user.secret);
+                return res.redirect('/verifyLogin');
             } else {
               throw new Error('Wrong password!');
             }
@@ -66,30 +58,29 @@ class AuthController {
     };
 
     postLoginVerify = async (req, res, next) => {
-      const messagebird = require('messagebird')(process.env.MESSAGEBIRD_TEST_KEY);
-      messagebird.verify.verify(req.body.tokenId, req.body.token, async (err, response) => {
-        if (err) {
-          req.flash('userId', req.body.userId);
-          req.flash('tokenId', req.body.tokenId);
-          req.flash('errors', err.errors);
-          return res.redirect('/verifyLogin');
-        } else {
-          const user = await User.findById(req.body.userId).exec();
-          req.session.isLoggedIn = true;
-          req.session.user = user;
-          req.session.save(err => {
-            console.log(err);
-            return res.redirect('/protected');
+          const secret = req.body.secret;
+          const verifyCode = req.body.token;
+          const verified = await speakeasy.totp.verify({
+            secret: secret,
+            encoding: 'base32',
+            token: verifyCode,
           });
-        }
-      })
+          if (verified) {
+            const user = await User.findById(req.body.userId).exec();
+            req.session.isLoggedIn = true;
+            req.session.user = user;
+            req.session.save(err => {
+              console.log(err);
+              return res.redirect('/protected');
+            });
+          }
     }
+
       
     postSignup = async (req, res, next) => {
       const name = req.body.name;
       const email = req.body.email;
       const password = req.body.password;
-      const phone = req.body.phone;
       const confirmPassword = req.body.confirmPassword;
       try {
         const responseUser = await User.findOne({ email }).exec();
@@ -97,14 +88,17 @@ class AuthController {
           return res.redirect('/login');
         }
         const hashedPassword = await bcrypt.hash(password, 12);
+        const secret = speakeasy.generateSecret();
         const user = new User({
           name,
           email,
           password: hashedPassword,
-          phone,
+          secret: secret,
         });
         const result = await user.save();
-        res.redirect('/login')
+
+        req.flash('secret', secret);
+        return res.redirect('/getGoogleAuthenticator')
       } catch (err) {
         console.log(err);
       }
@@ -116,6 +110,32 @@ class AuthController {
           res.redirect('/');
         });
     };
+
+    verifyGoogleAuth = (req, res, next) => {
+      const verified = speakeasy.totp.verify({
+        secret: req.body.secret,
+        encoding: 'base32',
+        token: req.body.token
+      })
+
+      if (verified) {
+        return res.redirect('/login');
+      }
+    }
+
+    getGoogleAuthentication = (req, res, next) => {
+      const secret = req.flash('secret')[0];
+      let qrCodeUrl;
+      QRCode.toDataURL(secret.otpauth_url, function(err, data_url) {
+        qrCodeUrl = data_url;
+        res.render('auth/addGoogleAuthentication', {
+          path: '/addAuthentication',
+          pageTitle: 'Add Authentication',
+          qrUrl: qrCodeUrl,
+          secret: secret.base32,
+        });
+      })
+    }
 
 }
 
